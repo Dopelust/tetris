@@ -17,6 +17,11 @@ ol, ul {
   margin-bottom: 10px;
 }
 
+.score {
+  font-size: 64px;
+  margin-left: 6px;
+}
+
 .square {
   background: white;
   border: 1px solid #333;
