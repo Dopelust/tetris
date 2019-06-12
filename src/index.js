@@ -2,8 +2,49 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 
-const colors = ["white", "red", "green", "blue", "cyan", "magenta", "yellow"];
-
+const colors = ["white", "yellow", "cyan", "orange", "blue", "magenta", "green", "red"];
+const tetromino = [
+  {
+    blocks: [],
+    pivot: [],
+    value: 0,
+  },
+  {
+    blocks: [[0, 4], [0, 5], [1, 4], [1, 5]], //O
+    pivot: [0.5, -0.5],
+    value: 1,
+  },
+  {
+    blocks: [[0, 3], [0, 4], [0, 5], [0, 6]], //I
+    pivot: [0.5, 0.5],
+    value: 2,
+  },
+  {
+    blocks: [[0, 4], [1, 4], [2, 4], [2, 5]], //L>
+    pivot: [0, 0],
+    value: 3,
+  },
+  {
+    blocks: [[0, 5], [1, 5], [2, 5], [2, 4]], //L<
+    pivot: [0, 0],
+    value: 4,
+  },
+  {
+    blocks: [[0, 4], [1, 4], [2, 4], [1, 5]], //T
+    pivot: [0, 0],
+    value: 5,
+  },
+  {
+    blocks: [[0, 4], [1, 4], [1, 5], [2, 5]], //Z>
+    pivot: [0, 0],
+    value: 6,
+  },
+  {
+    blocks: [[0, 5], [1, 5], [1, 4], [2, 4]], //Z<
+    pivot: [0, 0],
+    value: 7,
+  },
+]
 function getRndInteger(min, max) {
   return Math.floor(Math.random() * (max - min) ) + min;
 }
@@ -13,22 +54,30 @@ function arrOutOfBounds(arr, i) {
 
 function Square(props) {
   return (
-    <button className="square" style={{background: colors[props.value]}}></button>
+    <button className="square" style={{background: colors[props.value],
+      borderTop: props.t ? " solid #eee" : "0px solid",
+      borderBottom: props.b ? " solid" : "0px solid",
+      borderLeft: props.l ? " solid #eee" : "0px solid",
+      borderRight: props.r ? " solid" : "0px solid",}}></button>
   );
 }
 
 class Board extends React.Component {
-  renderRow(row, rowIndex) {
+  renderRow(rows, row, rowIndex) {
     return (
       <div className="board-row" key={rowIndex}>
-        {row.map((square, index) => <Square value={square} key={index}/>)}
+        {row.map((square, index) => <Square l={index === 0 || (row[index] > 0 && row[index - 1] === 0)}
+                                            r={index === 9 || (row[index] > 0 && row[index + 1] === 0)}
+                                            t={rowIndex === 0 || (row[index] > 0 && rows[rowIndex - 1][index] === 0)}
+                                            b={rowIndex === 15 || (row[index] > 0 && rows[rowIndex + 1][index] === 0)}
+                                            value={square} key={index}/>)}
       </div>
     );
   }
   render() {
     return (
       <div>
-        {this.props.rows.map((row, rowIndex) => this.renderRow(row, rowIndex))}
+        {this.props.rows.map((row, rowIndex) => this.renderRow(this.props.rows, row, rowIndex))}
       </div>
     );
   }
@@ -72,7 +121,7 @@ class Game extends React.Component {
     super(props);
     this.state = {
         score: 0,
-        speed: 100,
+        speed: 300,
         rows: [
           [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
           [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -110,7 +159,7 @@ class Game extends React.Component {
     }
     const tetris = this.state.tetris;
     tetris.blocks = [];
-    this.setState({ rows: rows, tetris: tetris });
+    this.setState({ rows: rows, tetris: tetris, score: 0});
   }
 
   onLoop() {
@@ -143,7 +192,8 @@ class Game extends React.Component {
 
   applyTetris(rows, blocks, value) {
     for (let i = 0; i < blocks.length; ++i) {
-      rows[blocks[i][0]][blocks[i][1]] = value;
+      if (!arrOutOfBounds(rows, blocks[i][0]) && !arrOutOfBounds(rows[blocks[i][0]], blocks[i][1]))
+              rows[blocks[i][0]][blocks[i][1]] = value;
     }
   }
 
@@ -231,11 +281,22 @@ class Game extends React.Component {
   }
 
   getRotatedTetrisLeft(px, py, x, y, size) {
+    let tx = x - px;
+    let ty = y - py;
     return {
-      x: y + px - py,
-      y: x + py - px,
+      x: -1 * ty + px,
+      y: 1 * tx + py,
     }
   }
+  getRotatedTetrisRight(px, py, x, y, size) {
+    let tx = x - px;
+    let ty = y - py;
+    return {
+      x: 1 * ty + px,
+      y: -1 * tx + py,
+    }
+  }
+
   shiftBlocks(blocks, x, y) {
     for (let i = 0; i < blocks.length; ++i) {
       blocks[i][0] += x;
@@ -266,28 +327,29 @@ class Game extends React.Component {
     const tetris = Object.assign({}, this.state.tetris);
 
     this.applyTetris(rows, tetris.blocks, 0);
+    let px = tetris.blocks[tetris.blocks.length/2 - 1][0] + tetris.pivot[0],
+     py = tetris.blocks[tetris.blocks.length/2 - 1][1] + tetris.pivot[1];
     for (let i = 0; i < tetris.blocks.length; ++i) {
-      let rotated = this.getRotatedTetrisLeft(tetris.blocks[tetris.blocks.length/2][0], tetris.blocks[tetris.blocks.length/2][1], tetris.blocks[i][0], tetris.blocks[i][1]);
+      let rotated = this.getRotatedTetrisRight(px, py, tetris.blocks[i][0], tetris.blocks[i][1]);
       tetris.blocks[i][0] = rotated.x;
       tetris.blocks[i][1] = rotated.y;
     }
+    let rotated = this.getRotatedTetrisRight(0, 0, tetris.pivot[0], tetris.pivot[1]);
+    tetris.pivot[0] = rotated.x;
+    tetris.pivot[1] = rotated.y;
 
     this.unclipTetris(rows, tetris.blocks);
     this.applyTetris(rows, tetris.blocks, tetris.value);
 
     this.setState({
       rows: rows,
-      tetris: tetris,
+      tetris: tetris
     });
   }
 
   spawnTetris() {
-    const tetris = {
-      blocks: [[0, 3], [0, 4], [0, 5], [0, 6]],
-      value: getRndInteger(1, colors.length),
-    };
+    const tetris = JSON.parse(JSON.stringify(tetromino))[getRndInteger(1, tetromino.length)];
     const rows = this.state.rows.slice();
-
     if (this.canMove(rows, tetris.blocks, 0, 0) > 0) {
       this.applyTetris(rows, tetris.blocks, tetris.value);
       this.setState({
@@ -313,8 +375,8 @@ class Game extends React.Component {
   }
 
   handleKeyPress(event) {
-    if (!this.gameLoop)
-      return;
+    //if (!this.gameLoop)
+      //return;
     switch (event.key) {
       case 'ArrowLeft': //Left
         this.moveTetris(0, -1);
@@ -330,6 +392,17 @@ class Game extends React.Component {
         break;
       case ' ':
         this.moveTetrisRecursive(1, 0);
+        break;
+      case 'r':
+        this.onNewGame();
+        break;
+      case 's':
+        if (this.gameLoop) {
+          this.endLoop();
+        }
+        else {
+          this.onLoop();
+        }
         break;
       default:
          break;
@@ -349,8 +422,8 @@ class Game extends React.Component {
           <ScoreCounter score={this.state.score}/>
           <Board rows={this.state.rows}/>
           <br/>
-          <button onClick={() => this.onNewGame()}>New Game</button>
-          <br/><br/>Speed:&nbsp;
+          <button className="keycapButton" onClick={() => this.onNewGame()}>R</button>  to Reset
+          <br/><br/><br/>Speed:&nbsp;
           <input type="range" style={{direction:"rtl"}} value={this.state.speed} min="100" max="500" onChange={(event) => {this.onSpeedChange(event)}}></input>
         </div>
         <div className="game-info">
